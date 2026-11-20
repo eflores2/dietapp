@@ -1,0 +1,2130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#3f624d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NutriHábito" />
+  <title>NutriHábito · Menú Diario Aleatorio</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            sage: {
+              50: '#f4f7f5',
+              100: '#e3ebe6',
+              200: '#c6d7cd',
+              300: '#9ebba9',
+              400: '#729982',
+              500: '#527d65',
+              600: '#3f624d',
+              700: '#334f3f',
+              800: '#2a4034',
+              900: '#23352b',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Inline Web App Manifest via Data URI for PWA installability -->
+  <link rel="manifest" href='data:application/manifest+json,{"name":"NutriH%C3%A1bito%20-%20Men%C3%BA%20Aleatorio","short_name":"NutriH%C3%A1bito","start_url":".","display":"standalone","background_color":"#f4f7f5","theme_color":"#3f624d","description":"Selector%20aleatorio%20de%20men%C3%BAs%20semanales%20y%20recetas%20NutriH%C3%A1bito","icons":[{"src":"data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20512%20512%27%3E%3Crect%20width%3D%27512%27%20height%3D%27512%27%20rx%3D%27112%27%20fill%3D%27%233f624d%27/%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2754%25%27%20font-size%3D%27260%27%20text-anchor%3D%27middle%27%20dominant-baseline%3D%27middle%27%3E%F0%9F%A5%97%3C/text%3E%3C/svg%3E","sizes":"512x512","type":"image/svg+xml"}]}' />
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f4f7f5;
+      color: #1e293b;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+
+    /* Custom subtle scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #c6d7cd;
+      border-radius: 9999px;
+    }
+
+    /* Dice & shuffle animation */
+    @keyframes popShuffle {
+      0% { transform: scale(0.96) translateY(6px); opacity: 0.5; }
+      60% { transform: scale(1.01) translateY(-2px); opacity: 1; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    .animate-shuffle {
+      animation: popShuffle 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes spinDice {
+      0% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(180deg) scale(1.2); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+    .spin-dice {
+      animation: spinDice 0.45s ease-in-out;
+    }
+
+    /* Bottom sheet slide up */
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .animate-sheet {
+      animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col pb-24 select-none sm:select-auto">
+
+  <!-- Top App Bar (Material 3 Style) -->
+  <header class="sticky top-0 z-30 bg-sage-600 text-white shadow-md">
+    <div class="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center text-xl shadow-inner">
+          🥗
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight leading-tight">NutriHábito</h1>
+          <p id="header-subtitle" class="text-xs text-sage-100 font-medium">Enrique Flores Saez · 1 semana (7 días)</p>
+        </div>
+      </div>
+
+      <!-- Saved Today Indicator Badge -->
+      <button id="btn-load-pinned" onclick="loadPinnedMenu()" class="hidden items-center gap-1.5 bg-white/15 hover:bg-white/25 active:scale-95 transition px-3 py-1.5 rounded-full text-xs font-semibold">
+        <span>📌</span>
+        <span id="pinned-badge-text">Hoy</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Toast Notification Banner (No alert() used) -->
+  <div id="toast-container" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 opacity-0 translate-y-[-10px] w-[92%] max-w-md">
+    <div id="toast-box" class="bg-slate-900 text-white text-sm font-medium px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 border border-white/10">
+      <span id="toast-icon">✅</span>
+      <span id="toast-message">Mensaje</span>
+    </div>
+  </div>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-2xl w-full mx-auto px-4 pt-4 space-y-4">
+
+    <!-- ==================== TAB 1: SORTEO HOY ==================== -->
+    <section id="tab-sorteo" class="space-y-4">
+
+      <!-- Randomizer Control Card -->
+      <div class="bg-white rounded-3xl p-4 sm:p-5 shadow-sm border border-sage-200/70 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-sage-600 bg-sage-100 px-2.5 py-1 rounded-full">
+              Pool activo: <span id="pool-count-label">7 días</span>
+            </span>
+            <h2 class="text-lg font-bold text-slate-800 mt-1.5">¿Qué comemos hoy?</h2>
+          </div>
+
+          <button id="btn-random-main" onclick="pickRandomMenu()" class="w-full sm:w-auto bg-sage-600 hover:bg-sage-700 active:scale-[0.98] text-white font-bold py-3.5 px-6 rounded-2xl shadow-md shadow-sage-600/20 flex items-center justify-center gap-2.5 transition cursor-pointer">
+            <span id="dice-icon" class="text-xl inline-block">🎲</span>
+            <span>Elegir menú al azar</span>
+          </button>
+        </div>
+
+        <!-- Collapsible Allergen & Exclusion Filters -->
+        <div class="border-t border-slate-100 pt-3">
+          <button onclick="toggleFiltersPanel()" class="w-full flex items-center justify-between text-xs font-semibold text-slate-600 hover:text-sage-700 py-1">
+            <span class="flex items-center gap-1.5">
+              <span>🛡️ Filtros antes de sortear</span>
+              <span id="active-filters-badge" class="hidden bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[11px]">0 activos</span>
+            </span>
+            <span id="filters-chevron" class="transition-transform duration-200">▼</span>
+          </button>
+
+          <div id="filters-panel" class="hidden mt-3 space-y-3">
+            <div>
+              <p class="text-xs font-medium text-slate-500 mb-2">Toca los alérgenos que quieras <strong>EXCLUIR</strong> del sorteo:</p>
+              <div id="allergen-chips-container" class="flex flex-wrap gap-1.5">
+                <!-- Dynamic allergen chips injected by JS -->
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <span id="filtered-pool-info" class="text-xs text-slate-500">7 días cumplen los filtros</span>
+              <button onclick="clearFilters()" class="text-xs font-semibold text-sage-600 hover:underline">Limpiar filtros</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected Day Header Card -->
+      <div id="selected-day-card" class="bg-white rounded-3xl p-4 sm:p-5 shadow-sm border border-sage-200/70 space-y-3">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="current-week-badge" class="bg-sage-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+                Semana 1 · Lunes
+              </span>
+              <span id="pinned-status-pill" class="hidden bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+                📌 Fijado como Menú de Hoy
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">Toca cualquier plato para ver ingredientes y pasos de preparación.</p>
+          </div>
+
+          <!-- Action Buttons: Pin Today & Favorite -->
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="btn-toggle-fav" onclick="toggleFavoriteCurrent()" title="Guardar en favoritos" class="p-3 rounded-2xl bg-slate-100 hover:bg-rose-50 text-slate-600 transition active:scale-95">
+              <span id="fav-icon" class="text-lg">🤍</span>
+            </button>
+            <button id="btn-pin-today" onclick="pinCurrentAsToday()" title="Fijar como Menú de Hoy" class="px-3.5 py-2.5 rounded-2xl bg-sage-100 hover:bg-sage-200 text-sage-800 font-semibold text-xs flex items-center gap-1.5 transition active:scale-95">
+              <span>📌</span>
+              <span class="hidden sm:inline">Fijar Hoy</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Day Allergens Bar -->
+        <div class="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
+          <span class="text-[11px] font-semibold text-slate-400 uppercase mr-1">Alérgenos del día:</span>
+          <div id="current-day-allergens" class="flex flex-wrap gap-1">
+            <!-- Injected by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Meals Container (Desayuno, Comida, Merienda, Cena) -->
+      <div id="meals-list-container" class="space-y-3.5">
+        <!-- Meal cards injected by JS -->
+      </div>
+
+    </section>
+
+    <!-- ==================== TAB 2: EXPLORAR TODOS LOS DÍAS ==================== -->
+    <section id="tab-explorar" class="hidden space-y-4">
+      <div class="bg-white rounded-3xl p-4 sm:p-5 shadow-sm border border-sage-200/70 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800">Explorar Menús Cargados</h2>
+            <p class="text-xs text-slate-500">Consulta cualquier día directamente o filtra por favoritos y búsqueda.</p>
+          </div>
+          <div class="flex gap-1.5">
+            <button id="filter-all-btn" onclick="setExploreFilter('all')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-sage-600 text-white">Todos</button>
+            <button id="filter-fav-btn" onclick="setExploreFilter('fav')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600">❤️ Favoritos</button>
+          </div>
+        </div>
+
+        <!-- Search Input -->
+        <div class="relative">
+          <input id="explore-search" type="text" oninput="renderExploreList()" placeholder="Buscar plato o ingrediente (ej. salmón, lubina, tortilla)..." class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+        </div>
+      </div>
+
+      <div id="explore-days-container" class="space-y-3">
+        <!-- Day summary cards injected by JS -->
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: COMPRA & GESTIONAR JSON ==================== -->
+    <section id="tab-gestion" class="hidden space-y-4">
+
+      <!-- Shopping List Section -->
+      <div class="bg-white rounded-3xl p-4 sm:p-5 shadow-sm border border-sage-200/70 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800">🛒 Lista de la Compra</h2>
+            <p class="text-xs text-slate-500">Suma automática de gramos según los días seleccionados.</p>
+          </div>
+          <select id="shopping-scope" onchange="renderShoppingList()" class="bg-sage-50 border border-sage-200 text-sage-900 text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none">
+            <option value="current">Solo menú mostrado ahora</option>
+            <option value="pinned">Menú fijado para Hoy</option>
+            <option value="week1">Semana 1 completa (7 días)</option>
+            <option value="all">Todos los días cargados</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-between bg-sage-50 px-3.5 py-2.5 rounded-2xl">
+          <span id="shopping-summary-text" class="text-xs font-semibold text-sage-800">0 ingredientes</span>
+          <button onclick="copyShoppingList()" class="text-xs font-bold text-sage-700 hover:text-sage-900 flex items-center gap-1 bg-white px-3 py-1.5 rounded-xl shadow-xs border border-sage-200 active:scale-95 transition">
+            <span>📋</span>
+            <span>Copiar lista</span>
+          </button>
+        </div>
+
+        <div id="shopping-items-container" class="divide-y divide-slate-100 max-h-80 overflow-y-auto pr-1">
+          <!-- Shopping items injected by JS -->
+        </div>
+      </div>
+
+      <!-- Add / Manage Weeks (JSON) Section -->
+      <div class="bg-white rounded-3xl p-4 sm:p-5 shadow-sm border border-sage-200/70 space-y-4">
+        <div>
+          <span class="inline-block bg-sage-100 text-sage-700 text-[11px] font-bold uppercase px-2.5 py-0.5 rounded-full">Escalable hasta 8 semanas (56 días)</span>
+          <h2 class="text-lg font-bold text-slate-800 mt-1">📥 Añadir más semanas (JSON)</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Sube archivos <code class="bg-slate-100 px-1 rounded">.json</code> o pega el contenido JSON de tus siguientes semanas para sumarlas al sorteo.</p>
+        </div>
+
+        <!-- Loaded Weeks List -->
+        <div class="space-y-2">
+          <p class="text-xs font-semibold text-slate-600">Semanas guardadas actualmente en tu dispositivo:</p>
+          <div id="loaded-weeks-list" class="space-y-2">
+            <!-- Injected by JS -->
+          </div>
+        </div>
+
+        <!-- Upload File Button -->
+        <div class="pt-1">
+          <label class="w-full flex flex-col items-center justify-center px-4 py-4 bg-sage-50 hover:bg-sage-100/80 text-sage-800 rounded-2xl border-2 border-dashed border-sage-300 cursor-pointer transition">
+            <span class="text-2xl mb-1">📄</span>
+            <span class="text-xs font-bold">Seleccionar archivo .json desde el móvil/PC</span>
+            <span class="text-[11px] text-slate-500 mt-0.5">Puedes seleccionar uno o varios archivos a la vez</span>
+            <input type="file" id="json-file-input" accept=".json,application/json" multiple onchange="handleJsonFileUpload(event)" class="hidden" />
+          </label>
+        </div>
+
+        <!-- Paste Raw JSON -->
+        <div class="space-y-2">
+          <label for="json-paste-area" class="block text-xs font-semibold text-slate-600">O pega aquí el texto JSON de una semana:</label>
+          <textarea id="json-paste-area" rows="4" placeholder='{"paciente": "Enrique Flores Saez", "fecha_plan": "2026-10-20", "dias": [ ... ]}' class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sage-500"></textarea>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="handleJsonPasteImport()" class="flex-1 bg-sage-600 hover:bg-sage-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition active:scale-95">
+              ➕ Añadir semana pegada
+            </button>
+            <button onclick="exportAllDataJson()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl text-xs transition active:scale-95">
+              💾 Exportar copia
+            </button>
+          </div>
+        </div>
+
+        <!-- Reset Option -->
+        <div class="border-t border-slate-100 pt-3 flex items-center justify-between">
+          <span class="text-xs text-slate-400">¿Quieres volver solo a la Semana 1 original?</span>
+          <button onclick="requestResetData()" id="btn-reset-confirm" class="text-xs font-semibold text-rose-600 hover:underline">
+            Restaurar datos iniciales
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Bottom Sheet / Modal for Recipe Details -->
+  <div id="recipe-modal" class="fixed inset-0 z-50 hidden">
+    <!-- Backdrop -->
+    <div onclick="closeRecipeModal()" class="absolute inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"></div>
+
+    <!-- Sheet Content -->
+    <div class="absolute bottom-0 left-0 right-0 max-w-2xl mx-auto bg-white rounded-t-3xl shadow-2xl max-h-[88vh] flex flex-col animate-sheet">
+      <!-- Drag Handle -->
+      <div class="w-full flex justify-center pt-3 pb-1" onclick="closeRecipeModal()">
+        <div class="w-12 h-1.5 bg-slate-200 rounded-full"></div>
+      </div>
+
+      <!-- Modal Header -->
+      <div class="px-5 py-3 border-b border-slate-100 flex items-start justify-between gap-3">
+        <div>
+          <span id="modal-meal-tag" class="text-[11px] font-bold uppercase tracking-wider text-sage-600 bg-sage-100 px-2.5 py-0.5 rounded-full">
+            Comida · 14:00
+          </span>
+          <h3 id="modal-dish-title" class="text-lg sm:text-xl font-extrabold text-slate-800 mt-1.5 leading-snug">
+            Nombre del plato
+          </h3>
+        </div>
+        <button onclick="closeRecipeModal()" class="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm shrink-0">
+          ✕
+        </button>
+      </div>
+
+      <!-- Modal Scrollable Body -->
+      <div class="p-5 overflow-y-auto space-y-5">
+        <!-- Ingredients Section -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+            <span>⚖️ Ingredientes (1 persona)</span>
+          </h4>
+          <ul id="modal-ingredients-list" class="space-y-2">
+            <!-- Ingredients injected by JS -->
+          </ul>
+        </div>
+
+        <!-- Steps Section -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+            <span>👨‍🍳 Pasos de preparación</span>
+          </h4>
+          <ol id="modal-steps-list" class="space-y-3">
+            <!-- Steps injected by JS -->
+          </ol>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-slate-100 bg-slate-50/80 rounded-b-none">
+        <button onclick="closeRecipeModal()" class="w-full bg-sage-600 hover:bg-sage-700 text-white font-bold py-3 rounded-2xl text-sm transition active:scale-[0.99]">
+          Entendido, cerrar receta
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar (Material 3 Mobile Nav) -->
+  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-lg">
+    <div class="max-w-2xl mx-auto grid grid-cols-3 h-16">
+      <button onclick="switchTab('sorteo')" id="nav-sorteo" class="flex flex-col items-center justify-center gap-1 text-sage-700 font-bold transition">
+        <span class="px-4 py-1 rounded-full bg-sage-100 text-base leading-none">🎲</span>
+        <span class="text-[11px]">Sorteo Hoy</span>
+      </button>
+
+      <button onclick="switchTab('explorar')" id="nav-explorar" class="flex flex-col items-center justify-center gap-1 text-slate-500 font-medium transition">
+        <span class="px-4 py-1 rounded-full text-base leading-none">📅</span>
+        <span id="nav-explorar-label" class="text-[11px]">Explorar (7)</span>
+      </button>
+
+      <button onclick="switchTab('gestion')" id="nav-gestion" class="flex flex-col items-center justify-center gap-1 text-slate-500 font-medium transition">
+        <span class="px-4 py-1 rounded-full text-base leading-none">🛒</span>
+        <span class="text-[11px]">Compra / JSON</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ==================== APPLICATION DATA & LOGIC ==================== -->
+  <script>
+    // 1. PRELOADED INITIAL PLAN DATA (Semana 1 - Enrique Flores Saez - 13 Octubre 2026)
+    const INITIAL_PLAN_DATA = {
+      paciente: "Enrique Flores Saez",
+      fecha_plan: "2026-10-13",
+      clinica: "NutriHábito",
+      dias: [
+        {
+          dia: "Lunes",
+          alergenos: ["Lácteos", "Gluten", "Pescado", "Sulfitos", "Mostaza"],
+          comidas: [
+            {
+              tipo: "Desayuno",
+              hora: "08:00",
+              platos: [
+                {
+                  nombre: "Leche desnatada con cacao",
+                  ingredientes: [
+                    { nombre: "Leche desnatada UHT", cantidad_g: 150, medida_casera: "1 vaso pequeño" },
+                    { nombre: "Cacao en polvo desgrasado sin azúcar", cantidad_g: 4, medida_casera: "1 cuchara café" }
+                  ],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Tostada de pan integral de barra con tomate y jamón serrano",
+                  ingredientes: [
+                    { nombre: "Pan integral de trigo", cantidad_g: 70, medida_casera: null },
+                    { nombre: "Tomate crudo", cantidad_g: 45, medida_casera: "3 rodajas" },
+                    { nombre: "Jamón serrano", cantidad_g: 30, medida_casera: "3 lonchas" }
+                  ],
+                  pasos_receta: [
+                    "Tostar en la plancha caliente el pan, colocar encima el jamón serrano y el tomate en lonchas."
+                  ]
+                }
+              ]
+            },
+            {
+              tipo: "Comida",
+              hora: "14:00",
+              platos: [
+                {
+                  nombre: "Gazpacho suave comercial",
+                  ingredientes: [
+                    { nombre: "Gazpacho suave comercial", cantidad_g: 225, medida_casera: "1 unidad" }
+                  ],
+                  pasos_receta: [
+                    "Servir en recipiente adecuado y consumir."
+                  ]
+                },
+                {
+                  nombre: "Pasta integral de espelta con salsa boloñesa",
+                  ingredientes: [
+                    { nombre: "Pasta integral de espelta", cantidad_g: 90, medida_casera: "2 vasos pequeños y 1/2 de 100 ml" },
+                    { nombre: "Aceite de oliva", cantidad_g: 8, medida_casera: "1 cucharada de postre" },
+                    { nombre: "Cebolla o cebolleta", cantidad_g: 90, medida_casera: "1/2 cebolleta" },
+                    { nombre: "Tomate frito comercial", cantidad_g: 60, medida_casera: "1.5 vasos 100 ml" },
+                    { nombre: "Orégano", cantidad_g: 5, medida_casera: "Al gusto" },
+                    { nombre: "Carne picada ternera", cantidad_g: 90, medida_casera: null }
+                  ],
+                  pasos_receta: [
+                    "Cocer la pasta integral de espelta en abundante agua con sal durante 10 minutos. Escurrir y reservar.",
+                    "Pochar la cebolla troceada en dados, cuando se empiece a dorar agregar la carne picada previamente salpimentada, cocinar el conjunto a fuego suave.",
+                    "Añadir al salteado el tomate frito y la pasta. Mezclar bien para que se integren los sabores.",
+                    "Emplatar y espolvorear con orégano."
+                  ]
+                },
+                {
+                  nombre: "Fruta",
+                  ingredientes: [
+                    { nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }
+                  ],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Pan integral",
+                  ingredientes: [
+                    { nombre: "Pan integral de trigo", cantidad_g: 40, medida_casera: "1/5 de barra de 250 g" }
+                  ],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [
+                    { nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }
+                  ],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Merienda",
+              hora: "17:00",
+              platos: [
+                {
+                  nombre: "Fruta",
+                  ingredientes: [
+                    { nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }
+                  ],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Cena",
+              hora: "21:30",
+              platos: [
+                {
+                  nombre: "Ensalada de merluza, tomate y cebolleta con vinagreta de mostaza",
+                  ingredientes: [
+                    { nombre: "Merluza", cantidad_g: 220, medida_casera: "1/4 de unidad de 1kg" },
+                    { nombre: "Tomate crudo", cantidad_g: 180, medida_casera: "1 tomate mediano" },
+                    { nombre: "Cebolla o cebolleta", cantidad_g: 70, medida_casera: "1/2 cebolleta" },
+                    { nombre: "Aceite de oliva", cantidad_g: 10, medida_casera: "1 cucharada sopera" },
+                    { nombre: "Mostaza", cantidad_g: 5, medida_casera: "Al gusto" },
+                    { nombre: "Vinagre", cantidad_g: 10, medida_casera: "Al gusto" }
+                  ],
+                  pasos_receta: [
+                    "Poner una cazuela plana con un dedo de agua al fuego. Cuando empiece a hervir incorporar los lomos de merluza limpios y cocer tapado durante 15 minutos. Sacar y desmenuzar en lascas.",
+                    "Preparar una vinagreta con la mostaza, el aceite y el vinagre. Batir bien para que emulsione.",
+                    "Picar el tomate y la cebolleta en dados pequeños.",
+                    "Emplatar con la ayuda de un aro colocando en la base las hortalizas y encima las lascas de merluza. Regar con la vinagreta."
+                  ]
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [
+                    { nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }
+                  ],
+                  pasos_receta: []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          dia: "Martes",
+          alergenos: ["Lácteos", "Gluten", "Crustáceos"],
+          comidas: [
+            {
+              tipo: "Desayuno",
+              hora: "08:00",
+              platos: [
+                {
+                  nombre: "Leche desnatada con cacao",
+                  ingredientes: [
+                    { nombre: "Leche desnatada UHT", cantidad_g: 150, medida_casera: "1 vaso pequeño" },
+                    { nombre: "Cacao en polvo desgrasado sin azúcar", cantidad_g: 4, medida_casera: "1 cuchara café" }
+                  ],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Tostada de pan integral de barra con tomate y jamón serrano",
+                  ingredientes: [
+                    { nombre: "Pan integral de trigo", cantidad_g: 70, medida_casera: null },
+                    { nombre: "Tomate crudo", cantidad_g: 45, medida_casera: "3 rodajas" },
+                    { nombre: "Jamón serrano", cantidad_g: 30, medida_casera: "3 lonchas" }
+                  ],
+                  pasos_receta: [
+                    "Tostar en la plancha caliente el pan, colocar encima el jamón serrano y el tomate en lonchas."
+                  ]
+                }
+              ]
+            },
+            {
+              tipo: "Comida",
+              hora: "14:00",
+              platos: [
+                {
+                  nombre: "Garbanzos con gambas y champiñones",
+                  ingredientes: [
+                    { nombre: "Aceite de oliva", cantidad_g: 8, medida_casera: "1 cucharada de postre" },
+                    { nombre: "Champiñón o seta", cantidad_g: 150, medida_casera: "7 unidades medianas" },
+                    { nombre: "Garbanzos cocidos", cantidad_g: 225, medida_casera: "1/2 tarro de conserva de 400 g" },
+                    { nombre: "Gamba o camarón", cantidad_g: 60, medida_casera: "1 ración peq (4-6 unidades)" }
+                  ],
+                  pasos_receta: [
+                    "Volcar los garbanzos cocidos en un colador, pasarlos bajo el chorro de agua fría, dejarlos escurrir y reservar.",
+                    "Calentar el aceite en una sartén y saltear las gambas peladas y troceadas.",
+                    "Añadir los champiñones cortados a cuartos y rehogar junto a las gambas.",
+                    "Incorporar al salteado los garbanzos cocidos y escurridos. Rehogar todo junto."
+                  ]
+                },
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Pan integral",
+                  ingredientes: [{ nombre: "Pan integral de trigo", cantidad_g: 40, medida_casera: "1/5 de barra de 250 g" }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Merienda",
+              hora: "17:00",
+              platos: [
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Cena",
+              hora: "21:30",
+              platos: [
+                {
+                  nombre: "Ensalada de tomate con ajo",
+                  ingredientes: [
+                    { nombre: "Tomate crudo", cantidad_g: 90, medida_casera: "1 tomate pequeño tipo pera" },
+                    { nombre: "Ajo", cantidad_g: 5, medida_casera: "1 diente" },
+                    { nombre: "Aceite de oliva", cantidad_g: 5, medida_casera: "1 cucharada de postre" }
+                  ],
+                  pasos_receta: [
+                    "Lavar y cortar el tomate en trozos gruesos.",
+                    "Picar el ajo muy fino.",
+                    "Emplatar el tomate, repartir el ajo por encima y aliñar con aceite de oliva."
+                  ]
+                },
+                {
+                  nombre: "Lomo adobado a la plancha con champiñones",
+                  ingredientes: [
+                    { nombre: "Aceite de oliva", cantidad_g: 10, medida_casera: "1 cucharada sopera" },
+                    { nombre: "Champiñón o seta", cantidad_g: 175, medida_casera: "7 unidades medianas" },
+                    { nombre: "Lomo adobado", cantidad_g: 240, medida_casera: "5 filetes" }
+                  ],
+                  pasos_receta: [
+                    "Asar las cortadas de lomo adobado en la plancha caliente.",
+                    "Saltear con la cantidad sugerida de aceite el champiñón cortado en cuartos.",
+                    "Emplatar el lomo con el champiñón."
+                  ]
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          dia: "Miércoles",
+          alergenos: ["Lácteos", "Gluten", "Pescado", "Huevos"],
+          comidas: [
+            {
+              tipo: "Desayuno",
+              hora: "08:00",
+              platos: [
+                {
+                  nombre: "Leche desnatada con cacao",
+                  ingredientes: [
+                    { nombre: "Leche desnatada UHT", cantidad_g: 150, medida_casera: "1 vaso pequeño" },
+                    { nombre: "Cacao en polvo desgrasado sin azúcar", cantidad_g: 4, medida_casera: "1 cuchara café" }
+                  ],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Tostada de pan integral de barra con pavo y queso fresco",
+                  ingredientes: [
+                    { nombre: "Pan integral de trigo", cantidad_g: 70, medida_casera: null },
+                    { nombre: "Queso tipo Burgos 0% MG", cantidad_g: 70, medida_casera: "1 tarrina pequeña" },
+                    { nombre: "Pechuga de pavo (fiambre)", cantidad_g: 30, medida_casera: "3 lonchas" }
+                  ],
+                  pasos_receta: [
+                    "Tostar en la plancha caliente el pan y añadir encima el fiambre de pechuga de pavo y el queso fresco loncheado."
+                  ]
+                }
+              ]
+            },
+            {
+              tipo: "Comida",
+              hora: "14:00",
+              platos: [
+                {
+                  nombre: "Brócoli al vapor con patatas y especias",
+                  ingredientes: [
+                    { nombre: "Aceite de oliva", cantidad_g: 5, medida_casera: "1 cucharada de postre" },
+                    { nombre: "Brócoli", cantidad_g: 100, medida_casera: "2 floretas" },
+                    { nombre: "Patata", cantidad_g: 100, medida_casera: "1 unidad pequeña" },
+                    { nombre: "Perejil", cantidad_g: 3, medida_casera: "Al gusto" },
+                    { nombre: "Comino", cantidad_g: 2, medida_casera: "Al gusto" },
+                    { nombre: "Cúrcuma", cantidad_g: 2, medida_casera: "Al gusto" }
+                  ],
+                  pasos_receta: [
+                    "Lavar el brócoli y trocearlo en ramilletes, poner en un recipiente adecuado para microondas y cocinar al vapor.",
+                    "Cocer las patatas peladas y troceadas en agua hirviendo durante 20 minutos.",
+                    "Preparar un aliño mezclando el aceite de oliva junto con la cúrcuma, el perejil y el comino.",
+                    "Emplatar las verduras cocidas y regarlas con el aliño."
+                  ]
+                },
+                {
+                  nombre: "Salmón",
+                  ingredientes: [{ nombre: "Salmón", cantidad_g: 200, medida_casera: "1 rodaja/lomo" }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Pan integral",
+                  ingredientes: [{ nombre: "Pan integral de trigo", cantidad_g: 40, medida_casera: "1/5 de barra de 250 g" }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Merienda",
+              hora: "17:00",
+              platos: [
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Cena",
+              hora: "21:30",
+              platos: [
+                {
+                  nombre: "Huevo a la plancha sobre acelgas rehogadas con patatas, jamón serrano y ajo",
+                  ingredientes: [
+                    { nombre: "Acelgas", cantidad_g: 300, medida_casera: null },
+                    { nombre: "Jamón serrano", cantidad_g: 45, medida_casera: "5 lonchas" },
+                    { nombre: "Aceite de oliva", cantidad_g: 10, medida_casera: "1 cucharada sopera" },
+                    { nombre: "Patata", cantidad_g: 200, medida_casera: "1 unidad mediana" },
+                    { nombre: "Ajo", cantidad_g: 8, medida_casera: "2 dientes" },
+                    { nombre: "Huevo de gallina", cantidad_g: 60, medida_casera: "1 unidad talla M" }
+                  ],
+                  pasos_receta: [
+                    "Poner a cocer las patatas lavadas, entera y con piel, en abundante agua hirviendo durante 25-30 minutos. Sacar, pelar y trocear.",
+                    "Poner a cocer las acelgas limpias y picadas durante 8-10 minutos.",
+                    "Rehogar los ajos laminados con el aceite de oliva indicado en una cazuela plana. Cuando los ajos se empiecen a dorar agregar las acelgas escurridas y saltear durante un par de minutos.",
+                    "Añadir entonces el jamón serrano cortado en tiras y las patatas. Cocinar el conjunto otros 2 minutos para que se integren los sabores.",
+                    "Calentar una sartén antiadherente ligeramente engrasada. Añadir el huevo y tapar la sartén, así conseguiremos cocinar el huevo con el propio vapor del calor que generan. Cocinar hasta que veamos que están cuajados por arriba y crujientes por abajo.",
+                    "Emplatar las acelgas con el huevo a la plancha encima."
+                  ]
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          dia: "Jueves",
+          alergenos: ["Lácteos", "Gluten", "Sulfitos", "Huevos", "Apio"],
+          comidas: [
+            {
+              tipo: "Desayuno",
+              hora: "08:00",
+              platos: [
+                {
+                  nombre: "Leche desnatada con cacao",
+                  ingredientes: [
+                    { nombre: "Leche desnatada UHT", cantidad_g: 150, medida_casera: "1 vaso pequeño" },
+                    { nombre: "Cacao en polvo desgrasado sin azúcar", cantidad_g: 4, medida_casera: "1 cuchara café" }
+                  ],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Tostada de pan integral de barra con tomate y jamón serrano",
+                  ingredientes: [
+                    { nombre: "Pan integral de trigo", cantidad_g: 70, medida_casera: null },
+                    { nombre: "Tomate crudo", cantidad_g: 45, medida_casera: "3 rodajas" },
+                    { nombre: "Jamón serrano", cantidad_g: 30, medida_casera: "3 lonchas" }
+                  ],
+                  pasos_receta: [
+                    "Tostar en la plancha caliente el pan, colocar encima el jamón serrano y el tomate en lonchas."
+                  ]
+                }
+              ]
+            },
+            {
+              tipo: "Comida",
+              hora: "14:00",
+              platos: [
+                {
+                  nombre: "Estofado de pollo con pimientos",
+                  ingredientes: [
+                    { nombre: "Aceite de oliva", cantidad_g: 10, medida_casera: "1 cucharada sopera" },
+                    { nombre: "Ajo", cantidad_g: 5, medida_casera: "1 diente" },
+                    { nombre: "Perejil", cantidad_g: 3, medida_casera: "Al gusto" },
+                    { nombre: "Pimiento rojo", cantidad_g: 120, medida_casera: null },
+                    { nombre: "Tomate crudo", cantidad_g: 180, medida_casera: "1 tomate mediano" },
+                    { nombre: "Pollo, pechuga, solomillo", cantidad_g: 200, medida_casera: null },
+                    { nombre: "Vino blanco 11º", cantidad_g: 75, medida_casera: null }
+                  ],
+                  pasos_receta: [
+                    "Cortar en dados pequeños la pechuga de pollo y dorar en aceite junto con el ajo finamente picado.",
+                    "Añadir el vino blanco y cocinar un minuto a fuego alto para que evapore el alcohol.",
+                    "Sacar los trozos de pollo y reservar. Incorporar a la cazuela el pimiento cortado en rodajas y los tomates pelados y troceados.",
+                    "Tapar la cazuela y cocer a fuego lento, removiendo de vez en cuando.",
+                    "Volver a poner los trozos de pollo en la cazuela y terminar la cocción. Antes de retirar del fuego agregar el perejil picado."
+                  ]
+                },
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Pan integral",
+                  ingredientes: [{ nombre: "Pan integral de trigo", cantidad_g: 40, medida_casera: "1/5 de barra de 250 g" }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Merienda",
+              hora: "17:00",
+              platos: [
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Cena",
+              hora: "21:30",
+              platos: [
+                {
+                  nombre: "Sopa juliana de verduras",
+                  ingredientes: [
+                    { nombre: "Zanahoria", cantidad_g: 40, medida_casera: "1 unidad pequeña (40g)" },
+                    { nombre: "Puerro", cantidad_g: 50, medida_casera: "5 rodajas" },
+                    { nombre: "Nabo", cantidad_g: 50, medida_casera: "1 unidad pequeña" },
+                    { nombre: "Apio", cantidad_g: 70, medida_casera: "1 penca" },
+                    { nombre: "Caldo vegetal", cantidad_g: 150, medida_casera: null },
+                    { nombre: "Aceite de oliva", cantidad_g: 5, medida_casera: "1 cucharada de postre" },
+                    { nombre: "Perejil", cantidad_g: 3, medida_casera: "Al gusto" }
+                  ],
+                  pasos_receta: [
+                    "Lavar y pelar la zanahoria, el nabo, el puerro y el apio. Cortar en juliana, es decir en tiras finas y largas.",
+                    "Rehogar las verduras en una cazuela amplia con la cantidad sugerida de aceite durante 10 minutos.",
+                    "Agregar el caldo de verduras y cocer durante 15 minutos. Podemos añadir especias o hierbas aromáticas al gusto.",
+                    "Emplatar la sopa y espolvorear con perejil picado."
+                  ]
+                },
+                {
+                  nombre: "Pavo, pechuga (fresco)",
+                  ingredientes: [{ nombre: "Pavo, pechuga (fresco)", cantidad_g: 200, medida_casera: "1 filete grande" }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          dia: "Viernes",
+          alergenos: ["Lácteos", "Gluten", "Crustáceos", "Huevos", "Soja", "Pescado", "Sulfitos", "Moluscos"],
+          comidas: [
+            {
+              tipo: "Desayuno",
+              hora: "08:00",
+              platos: [
+                {
+                  nombre: "Leche desnatada con cacao",
+                  ingredientes: [
+                    { nombre: "Leche desnatada UHT", cantidad_g: 150, medida_casera: "1 vaso pequeño" },
+                    { nombre: "Cacao en polvo desgrasado sin azúcar", cantidad_g: 4, medida_casera: "1 cuchara café" }
+                  ],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Tostada de pan integral de barra con pavo y aceite",
+                  ingredientes: [
+                    { nombre: "Pan integral de trigo", cantidad_g: 70, medida_casera: null },
+                    { nombre: "Aceite de oliva", cantidad_g: 5, medida_casera: "1 cucharada de postre" },
+                    { nombre: "Pechuga de pavo (fiambre)", cantidad_g: 30, medida_casera: "3 lonchas" }
+                  ],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Comida",
+              hora: "14:00",
+              platos: [
+                {
+                  nombre: "Pavo guisado con patata, zanahoria y judías verdes",
+                  ingredientes: [
+                    { nombre: "Harina de trigo", cantidad_g: 10, medida_casera: "1 cucharada sopera rasa" },
+                    { nombre: "Aceite de oliva", cantidad_g: 15, medida_casera: null },
+                    { nombre: "Judía verde", cantidad_g: 150, medida_casera: "1 plato pequeño" },
+                    { nombre: "Patata", cantidad_g: 170, medida_casera: "1 unidad mediana" },
+                    { nombre: "Zanahoria", cantidad_g: 80, medida_casera: "1 unidad mediana (80g)" },
+                    { nombre: "Pavo, pechuga (fresco)", cantidad_g: 180, medida_casera: "1 filete grande" },
+                    { nombre: "Tomate triturado natural", cantidad_g: 60, medida_casera: null },
+                    { nombre: "Pimentón", cantidad_g: 1, medida_casera: "Al gusto" }
+                  ],
+                  pasos_receta: [
+                    "Cortar la pechuga de pavo en dados gruesos, enharinarlos ligeramente y dorarlos en una sartén con la cantidad indicada de aceite. Retirar y reservar.",
+                    "En una olla amplia calentar el aceite y rehogar las judías verdes troceadas junto con la zanahoria cortada en rodajas durante 4-5 minutos. Añadir el tomate triturado y el pimentón, mezclar bien y cocinar unos minutos más.",
+                    "Incorporar el pavo reservado y las patatas chascadas. Cubrir con agua y cocinar a fuego suave durante 1 hora, hasta que la carne esté tierna y el caldo haya espesado ligeramente.",
+                    "Dejar reposar unos minutos antes de servir."
+                  ]
+                },
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Pan integral",
+                  ingredientes: [{ nombre: "Pan integral de trigo", cantidad_g: 40, medida_casera: "1/5 de barra de 250 g" }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Merienda",
+              hora: "17:00",
+              platos: [
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Cena",
+              hora: "21:30",
+              platos: [
+                {
+                  nombre: "Gazpacho suave comercial",
+                  ingredientes: [
+                    { nombre: "Gazpacho suave comercial", cantidad_g: 225, medida_casera: "1 unidad" }
+                  ],
+                  pasos_receta: [
+                    "Servir en recipiente adecuado y consumir."
+                  ]
+                },
+                {
+                  nombre: "Tosta integral de guacamole con salmón ahumado y huevo poché",
+                  ingredientes: [
+                    { nombre: "Pan integral de trigo", cantidad_g: 70, medida_casera: null },
+                    { nombre: "Guacamole", cantidad_g: 40, medida_casera: null },
+                    { nombre: "Salmón ahumado", cantidad_g: 30, medida_casera: "2 lonchas finas" },
+                    { nombre: "Huevo de gallina", cantidad_g: 60, medida_casera: "1 unidad talla M" }
+                  ],
+                  pasos_receta: [
+                    "Cascar el huevo en una taza y reservar.",
+                    "Poner al fuego una olla con abundante agua y un chorro de vinagre. Cuando esté a punto de empezar a hervir hacer un remolino con una cuchara.",
+                    "Dejar caer el huevo en el centro del remolino y cocinar durante 3 minutos.",
+                    "Retirar con una espumadera. La clara quedará sólida y la yema en su interior líquida.",
+                    "Untar la rebanada de pan con el guacamole, colocar encima el salmón ahumado y por último el huevo poché."
+                  ]
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          dia: "Sábado",
+          alergenos: ["Lácteos", "Gluten", "Sulfitos", "Crustáceos"],
+          comidas: [
+            {
+              tipo: "Desayuno",
+              hora: "08:00",
+              platos: [
+                {
+                  nombre: "Leche desnatada con cacao",
+                  ingredientes: [
+                    { nombre: "Leche desnatada UHT", cantidad_g: 150, medida_casera: "1 vaso pequeño" },
+                    { nombre: "Cacao en polvo desgrasado sin azúcar", cantidad_g: 4, medida_casera: "1 cuchara café" }
+                  ],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Tostada de pan integral de barra con pavo y queso fresco",
+                  ingredientes: [
+                    { nombre: "Pan integral de trigo", cantidad_g: 70, medida_casera: null },
+                    { nombre: "Queso tipo Burgos 0% MG", cantidad_g: 70, medida_casera: "1 tarrina pequeña" },
+                    { nombre: "Pechuga de pavo (fiambre)", cantidad_g: 30, medida_casera: "3 lonchas" }
+                  ],
+                  pasos_receta: [
+                    "Tostar en la plancha caliente el pan y añadir encima el fiambre de pechuga de pavo y el queso fresco loncheado."
+                  ]
+                }
+              ]
+            },
+            {
+              tipo: "Comida",
+              hora: "14:00",
+              platos: [
+                {
+                  nombre: "Pimientos asados",
+                  ingredientes: [
+                    { nombre: "Aceite de oliva", cantidad_g: 5, medida_casera: "1 cucharada de postre" },
+                    { nombre: "Pimiento rojo", cantidad_g: 100, medida_casera: "1/2 unidad mediana" },
+                    { nombre: "Vinagre", cantidad_g: 5, medida_casera: "Al gusto" }
+                  ],
+                  pasos_receta: [
+                    "Lavar bien los pimientos. Colocar en una fuente apta para horno y asar durante 45 minutos a 180ºC.",
+                    "Sacar y dejar reposar tapados con un trapo durante 15 minutos.",
+                    "Pelar, despepitar y trocear. Aliñar con aceite de oliva y vinagre."
+                  ]
+                },
+                {
+                  nombre: "Patatas al horno",
+                  ingredientes: [
+                    { nombre: "Patata", cantidad_g: 123, medida_casera: "1 unidad pequeña" },
+                    { nombre: "Aceite de oliva", cantidad_g: 5, medida_casera: "1 cucharada de postre" }
+                  ],
+                  pasos_receta: [
+                    "Precalentar el horno a 180ºC.",
+                    "Lavar bien las patatas, partir por la mitad y hacer unos cortes en la pulpa para que se asen mejor.",
+                    "Colocar las patatas en una bandeja de horno y agregar por encima la cantidad indicada de aceite. Se puede aderezar con hierbas aromáticas o especias al gusto.",
+                    "Hornear durante 25-35 minutos, hasta que las patatas estén tiernas."
+                  ]
+                },
+                {
+                  nombre: "Hamburguesa de ternera (carne picada 100%)",
+                  ingredientes: [
+                    { nombre: "Hamburguesa de ternera (carne picada 100%)", cantidad_g: 170, medida_casera: null }
+                  ],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Pan integral",
+                  ingredientes: [{ nombre: "Pan integral de trigo", cantidad_g: 40, medida_casera: "1/5 de barra de 250 g" }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Merienda",
+              hora: "17:00",
+              platos: [
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Cena",
+              hora: "21:30",
+              platos: [
+                {
+                  nombre: "Ensalada de lechuga, salteado de gambas y queso fresco",
+                  ingredientes: [
+                    { nombre: "Aceite de oliva", cantidad_g: 10, medida_casera: "1 cucharada sopera" },
+                    { nombre: "Lechuga", cantidad_g: 70, medida_casera: "4 hojas grandes" },
+                    { nombre: "Gamba o camarón", cantidad_g: 250, medida_casera: null },
+                    { nombre: "Queso tipo Burgos 0% MG", cantidad_g: 100, medida_casera: null }
+                  ],
+                  pasos_receta: [
+                    "Saltear a fuego vivo las gambas limpias y peladas. Sacar y dejar enfriar.",
+                    "Lavar y trocear la lechuga y cortar el queso fresco en dados.",
+                    "Mezclar la lechuga con el queso y el salteado de gambas. Aliñar con aceite de oliva."
+                  ]
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          dia: "Domingo",
+          alergenos: ["Lácteos", "Gluten", "Pescado", "Huevos"],
+          comidas: [
+            {
+              tipo: "Desayuno",
+              hora: "08:00",
+              platos: [
+                {
+                  nombre: "Leche desnatada con cacao",
+                  ingredientes: [
+                    { nombre: "Leche desnatada UHT", cantidad_g: 150, medida_casera: "1 vaso pequeño" },
+                    { nombre: "Cacao en polvo desgrasado sin azúcar", cantidad_g: 4, medida_casera: "1 cuchara café" }
+                  ],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Tostada de pan integral de barra con tomate y jamón serrano",
+                  ingredientes: [
+                    { nombre: "Pan integral de trigo", cantidad_g: 70, medida_casera: null },
+                    { nombre: "Tomate crudo", cantidad_g: 45, medida_casera: "3 rodajas" },
+                    { nombre: "Jamón serrano", cantidad_g: 30, medida_casera: "3 lonchas" }
+                  ],
+                  pasos_receta: [
+                    "Tostar en la plancha caliente el pan, colocar encima el jamón serrano y el tomate en lonchas."
+                  ]
+                }
+              ]
+            },
+            {
+              tipo: "Comida",
+              hora: "14:00",
+              platos: [
+                {
+                  nombre: "Lubina a la espalda con boniato asado y canónigos",
+                  ingredientes: [
+                    { nombre: "Filete de lubina", cantidad_g: 180, medida_casera: "1 1/2 filetes" },
+                    { nombre: "Pimienta de Cayena", cantidad_g: 0.5, medida_casera: null },
+                    { nombre: "Aceite de oliva", cantidad_g: 10, medida_casera: "1 cucharada sopera" },
+                    { nombre: "Pimentón", cantidad_g: 2, medida_casera: "Al gusto" },
+                    { nombre: "Canónigos", cantidad_g: 60, medida_casera: "1 plato mediano" },
+                    { nombre: "Tomate cherry", cantidad_g: 150, medida_casera: null },
+                    { nombre: "Boniato, camote, batata", cantidad_g: 150, medida_casera: "1/2 unidad grande" }
+                  ],
+                  pasos_receta: [
+                    "Lavar bien el boniato para eliminar los restos de tierra. Pinchar varias veces la piel con un cuchillo, colocarlo en un recipiente apto para microondas y cocinar tapado durante 10 minutos a máxima potencia, hasta que esté tierno.",
+                    "Calentar una sartén y cocinar el lomo de lubina por el lado de la piel durante unos 2 minutos. Dar la vuelta y terminar la cocción por el otro lado.",
+                    "Calentar el aceite de oliva con la cayena a fuego suave durante 1-2 minutos. Retirar la sartén del fuego, añadir el pimentón y remover rápidamente para formar un aceite aromatizado sin que el pimentón se queme.",
+                    "Cortar el boniato en rodajas.",
+                    "Emplatar la lubina y regarla con el aceite al pimentón y cayena. Acompañar con el boniato asado y una ensalada de canónigos y tomates cherry."
+                  ]
+                },
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Pan integral",
+                  ingredientes: [{ nombre: "Pan integral de trigo", cantidad_g: 40, medida_casera: "1/5 de barra de 250 g" }],
+                  pasos_receta: []
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Merienda",
+              hora: "17:00",
+              platos: [
+                {
+                  nombre: "Fruta",
+                  ingredientes: [{ nombre: "Fruta fresca", cantidad_g: 200, medida_casera: null }],
+                  pasos_receta: []
+                }
+              ]
+            },
+            {
+              tipo: "Cena",
+              hora: "21:30",
+              platos: [
+                {
+                  nombre: "Gazpacho suave comercial",
+                  ingredientes: [
+                    { nombre: "Gazpacho suave comercial", cantidad_g: 225, medida_casera: "1 unidad" }
+                  ],
+                  pasos_receta: [
+                    "Servir en recipiente adecuado y consumir."
+                  ]
+                },
+                {
+                  nombre: "Tortilla con jamón serrano y calabacín",
+                  ingredientes: [
+                    { nombre: "Clara de huevo pasteurizada", cantidad_g: 70, medida_casera: "2 unidades" },
+                    { nombre: "Huevo de gallina", cantidad_g: 60, medida_casera: "1 unidad talla M" },
+                    { nombre: "Aceite de oliva", cantidad_g: 10, medida_casera: "1 cucharada sopera" },
+                    { nombre: "Calabacín/zapallito/zucchini", cantidad_g: 100, medida_casera: "1 calabacín pequeño" },
+                    { nombre: "Jamón serrano", cantidad_g: 45, medida_casera: "5 lonchas" }
+                  ],
+                  pasos_receta: [
+                    "Saltear en una sartén caliente el calabacín troceado en pequeños dados. Cuando esté blando, agregar el jamón picado, mezclar y cocinar el conjunto durante 2 minutos.",
+                    "Batir el huevo con las claras previamente sazonadas. Añadir a la mezcla el calabacín con el jamón.",
+                    "Poner a calentar el aceite sugerido en una sartén, verter y extender la mezcla, dejar cuajar 5 minutos, doblar por la mitad y voltear para que se cuaje por el otro lado."
+                  ]
+                },
+                {
+                  nombre: "Yogur desnatado",
+                  ingredientes: [{ nombre: "Yogur natural desnatado", cantidad_g: 125, medida_casera: "1 unidad" }],
+                  pasos_receta: []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    // 2. APPLICATION STATE & STORAGE KEYS
+    const STORAGE_KEY_WEEKS = 'nutrihabito_weeks_v1';
+    const STORAGE_KEY_CURRENT = 'nutrihabito_current_day_v1';
+    const STORAGE_KEY_PINNED = 'nutrihabito_pinned_today_v1';
+    const STORAGE_KEY_FAVS = 'nutrihabito_favorites_v1';
+    const STORAGE_KEY_CHECKED_SHOP = 'nutrihabito_checked_shop_v1';
+
+    let weeks = []; // Array of weekly plan objects
+    let flattenedDays = []; // Flat list of all days across all weeks (up to 56+)
+    let currentDayMenu = null; // Currently displayed day object (can have swapped meals)
+    let excludedAllergens = new Set();
+    let favoritesSet = new Set();
+    let checkedShoppingItems = new Set();
+    let exploreFilterMode = 'all';
+    let resetConfirmPending = false;
+
+    const MEAL_ICONS = {
+      'Desayuno': '🌅',
+      'Comida': '🍽️',
+      'Merienda': '🍎',
+      'Cena': '🌙'
+    };
+
+    // 3. INITIALIZATION
+    function initApp() {
+      loadFromStorage();
+      rebuildFlattenedDays();
+      renderAllergenFilterChips();
+      updateHeaderAndCounts();
+
+      // Restore current or pinned day, or pick first day
+      const savedCurrent = localStorage.getItem(STORAGE_KEY_CURRENT);
+      const savedPinned = localStorage.getItem(STORAGE_KEY_PINNED);
+
+      if (savedCurrent) {
+        try {
+          currentDayMenu = JSON.parse(savedCurrent);
+        } catch (e) {
+          currentDayMenu = structuredClone(flattenedDays[0]);
+        }
+      } else if (savedPinned) {
+        try {
+          currentDayMenu = JSON.parse(savedPinned);
+        } catch (e) {
+          currentDayMenu = structuredClone(flattenedDays[0]);
+        }
+      } else {
+        currentDayMenu = structuredClone(flattenedDays[0]);
+      }
+
+      renderCurrentDayMenu(false);
+      renderExploreList();
+      renderShoppingList();
+      renderLoadedWeeksList();
+    }
+
+    function loadFromStorage() {
+      try {
+        const rawWeeks = localStorage.getItem(STORAGE_KEY_WEEKS);
+        if (rawWeeks) {
+          const parsed = JSON.parse(rawWeeks);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            weeks = parsed;
+          } else {
+            weeks = [INITIAL_PLAN_DATA];
+          }
+        } else {
+          weeks = [INITIAL_PLAN_DATA];
+          localStorage.setItem(STORAGE_KEY_WEEKS, JSON.stringify(weeks));
+        }
+
+        const rawFavs = localStorage.getItem(STORAGE_KEY_FAVS);
+        if (rawFavs) favoritesSet = new Set(JSON.parse(rawFavs));
+
+        const rawShop = localStorage.getItem(STORAGE_KEY_CHECKED_SHOP);
+        if (rawShop) checkedShoppingItems = new Set(JSON.parse(rawShop));
+      } catch (err) {
+        console.error('Error reading localStorage:', err);
+        weeks = [INITIAL_PLAN_DATA];
+      }
+    }
+
+    function saveWeeksToStorage() {
+      localStorage.setItem(STORAGE_KEY_WEEKS, JSON.stringify(weeks));
+    }
+
+    function rebuildFlattenedDays() {
+      flattenedDays = [];
+      weeks.forEach((week, wIdx) => {
+        const weekNumber = wIdx + 1;
+        if (Array.isArray(week.dias)) {
+          week.dias.forEach((dayObj, dIdx) => {
+            flattenedDays.push({
+              uid: `w${weekNumber}_d${dIdx}_${dayObj.dia}`,
+              semanaIndex: weekNumber,
+              fechaPlan: week.fecha_plan || `Semana ${weekNumber}`,
+              dia: dayObj.dia,
+              alergenos: Array.isArray(dayObj.alergenos) ? dayObj.alergenos : [],
+              comidas: Array.isArray(dayObj.comidas) ? dayObj.comidas : [],
+              isMixed: false
+            });
+          });
+        }
+      });
+    }
+
+    // 4. TOAST FEEDBACK HELPER
+    let toastTimeout = null;
+    function showToast(message, icon = '✅') {
+      const container = document.getElementById('toast-container');
+      document.getElementById('toast-message').textContent = message;
+      document.getElementById('toast-icon').textContent = icon;
+
+      container.classList.remove('opacity-0', 'translate-y-[-10px]');
+      container.classList.add('opacity-100', 'translate-y-0');
+
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        container.classList.add('opacity-0', 'translate-y-[-10px]');
+        container.classList.remove('opacity-100', 'translate-y-0');
+      }, 2800);
+    }
+
+    // 5. NAVIGATION TABS
+    function switchTab(tabName) {
+      const tabs = ['sorteo', 'explorar', 'gestion'];
+      tabs.forEach(t => {
+        const section = document.getElementById(`tab-${t}`);
+        const navBtn = document.getElementById(`nav-${t}`);
+        const iconSpan = navBtn.querySelector('span:first-child');
+
+        if (t === tabName) {
+          section.classList.remove('hidden');
+          navBtn.classList.remove('text-slate-500', 'font-medium');
+          navBtn.classList.add('text-sage-700', 'font-bold');
+          iconSpan.classList.add('bg-sage-100');
+        } else {
+          section.classList.add('hidden');
+          navBtn.classList.add('text-slate-500', 'font-medium');
+          navBtn.classList.remove('text-sage-700', 'font-bold');
+          iconSpan.classList.remove('bg-sage-100');
+        }
+      });
+
+      if (tabName === 'explorar') renderExploreList();
+      if (tabName === 'gestion') {
+        renderShoppingList();
+        renderLoadedWeeksList();
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // 6. ALLERGEN FILTERS & RANDOMIZER LOGIC
+    function getAllUniqueAllergens() {
+      const set = new Set();
+      flattenedDays.forEach(d => d.alergenos.forEach(a => set.add(a)));
+      return Array.from(set).sort();
+    }
+
+    function renderAllergenFilterChips() {
+      const container = document.getElementById('allergen-chips-container');
+      const allergens = getAllUniqueAllergens();
+      container.innerHTML = '';
+
+      allergens.forEach(allergen => {
+        const isExcluded = excludedAllergens.has(allergen);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.onclick = () => toggleAllergenFilter(allergen);
+        btn.className = isExcluded
+          ? 'px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-600 text-white shadow-xs transition flex items-center gap-1'
+          : 'px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition';
+        btn.innerHTML = isExcluded ? `<span>🚫</span><span>Sin ${allergen}</span>` : `<span>${allergen}</span>`;
+        container.appendChild(btn);
+      });
+
+      updateFilterStats();
+    }
+
+    function toggleAllergenFilter(allergen) {
+      if (excludedAllergens.has(allergen)) {
+        excludedAllergens.delete(allergen);
+      } else {
+        excludedAllergens.add(allergen);
+      }
+      renderAllergenFilterChips();
+    }
+
+    function clearFilters() {
+      excludedAllergens.clear();
+      renderAllergenFilterChips();
+      showToast('Filtros restablecidos', '🧹');
+    }
+
+    function toggleFiltersPanel() {
+      const panel = document.getElementById('filters-panel');
+      const chevron = document.getElementById('filters-chevron');
+      panel.classList.toggle('hidden');
+      chevron.classList.toggle('rotate-180');
+    }
+
+    function getEligibleDays() {
+      if (excludedAllergens.size === 0) return flattenedDays;
+      return flattenedDays.filter(day => {
+        return !day.alergenos.some(a => excludedAllergens.has(a));
+      });
+    }
+
+    function updateFilterStats() {
+      const eligible = getEligibleDays();
+      const badge = document.getElementById('active-filters-badge');
+      const info = document.getElementById('filtered-pool-info');
+
+      if (excludedAllergens.size > 0) {
+        badge.textContent = `${excludedAllergens.size} excluidos`;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      info.textContent = `${eligible.length} de ${flattenedDays.length} días cumplen los filtros`;
+    }
+
+    function pickRandomMenu() {
+      const eligible = getEligibleDays();
+      if (eligible.length === 0) {
+        showToast('Ningún día cumple esos filtros de alérgenos. Quita alguno.', '⚠️');
+        return;
+      }
+
+      // Spin dice animation
+      const dice = document.getElementById('dice-icon');
+      dice.classList.remove('spin-dice');
+      void dice.offsetWidth;
+      dice.classList.add('spin-dice');
+
+      // Avoid repeating the exact same day twice in a row when pool > 1
+      let candidates = eligible;
+      if (eligible.length > 1 && currentDayMenu) {
+        const withoutCurrent = eligible.filter(d => d.uid !== currentDayMenu.uid);
+        if (withoutCurrent.length > 0) candidates = withoutCurrent;
+      }
+
+      const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+      currentDayMenu = structuredClone(chosen);
+      localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(currentDayMenu));
+
+      renderCurrentDayMenu(true);
+      showToast(`Te ha tocado: Semana ${currentDayMenu.semanaIndex} · ${currentDayMenu.dia}`, '🎲');
+    }
+
+    // Swap just ONE meal (e.g., Comida or Cena) randomly from another day
+    function swapSingleMeal(mealIndex) {
+      const targetMeal = currentDayMenu.comidas[mealIndex];
+      if (!targetMeal) return;
+
+      const eligible = getEligibleDays();
+      const pool = eligible.length > 0 ? eligible : flattenedDays;
+
+      // Gather all meals of the same type across the pool
+      const mealCandidates = [];
+      pool.forEach(day => {
+        const found = day.comidas.find(m => m.tipo === targetMeal.tipo);
+        if (found) {
+          mealCandidates.push({
+            meal: found,
+            fromLabel: `Sem. ${day.semanaIndex} · ${day.dia}`
+          });
+        }
+      });
+
+      if (mealCandidates.length <= 1) {
+        showToast('No hay otras opciones disponibles para cambiar esta comida.', 'ℹ️');
+        return;
+      }
+
+      // Filter out identical meal if possible
+      const currentDishesSig = targetMeal.platos.map(p => p.nombre).join('|');
+      let different = mealCandidates.filter(c => c.meal.platos.map(p => p.nombre).join('|') !== currentDishesSig);
+      if (different.length === 0) different = mealCandidates;
+
+      const picked = different[Math.floor(Math.random() * different.length)];
+      const clonedMeal = structuredClone(picked.meal);
+      clonedMeal.swappedFrom = picked.fromLabel;
+
+      currentDayMenu.comidas[mealIndex] = clonedMeal;
+      currentDayMenu.isMixed = true;
+
+      localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(currentDayMenu));
+      renderCurrentDayMenu(true);
+      showToast(`${targetMeal.tipo} cambiada (${picked.fromLabel})`, '🔄');
+    }
+
+    // 7. RENDER CURRENT DAY MENU
+    function renderCurrentDayMenu(animate = false) {
+      if (!currentDayMenu) return;
+
+      const card = document.getElementById('selected-day-card');
+      const mealsContainer = document.getElementById('meals-list-container');
+
+      if (animate) {
+        card.classList.remove('animate-shuffle');
+        mealsContainer.classList.remove('animate-shuffle');
+        void card.offsetWidth;
+        card.classList.add('animate-shuffle');
+        mealsContainer.classList.add('animate-shuffle');
+      }
+
+      // Week & Day Badge
+      const badgeEl = document.getElementById('current-week-badge');
+      badgeEl.textContent = currentDayMenu.isMixed
+        ? `Semana ${currentDayMenu.semanaIndex} · ${currentDayMenu.dia} (Personalizado)`
+        : `Semana ${currentDayMenu.semanaIndex} · ${currentDayMenu.dia}`;
+
+      // Check if pinned as today
+      const pinnedRaw = localStorage.getItem(STORAGE_KEY_PINNED);
+      const pinnedPill = document.getElementById('pinned-status-pill');
+      if (pinnedRaw) {
+        try {
+          const pinnedObj = JSON.parse(pinnedRaw);
+          if (pinnedObj.uid === currentDayMenu.uid && !currentDayMenu.isMixed) {
+            pinnedPill.classList.remove('hidden');
+          } else {
+            pinnedPill.classList.add('hidden');
+          }
+        } catch (e) {
+          pinnedPill.classList.add('hidden');
+        }
+      } else {
+        pinnedPill.classList.add('hidden');
+      }
+
+      // Update favorite button
+      const favIcon = document.getElementById('fav-icon');
+      favIcon.textContent = favoritesSet.has(currentDayMenu.uid) ? '❤️' : '🤍';
+
+      // Allergens pills
+      const allergensDiv = document.getElementById('current-day-allergens');
+      allergensDiv.innerHTML = '';
+      if (currentDayMenu.alergenos && currentDayMenu.alergenos.length > 0) {
+        currentDayMenu.alergenos.forEach(al => {
+          const span = document.createElement('span');
+          span.className = 'text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200/80 px-2 py-0.5 rounded-full';
+          span.textContent = al;
+          allergensDiv.appendChild(span);
+        });
+      } else {
+        allergensDiv.innerHTML = '<span class="text-xs text-slate-400">Sin alérgenos declarados</span>';
+      }
+
+      // Render Meals Cards
+      mealsContainer.innerHTML = '';
+      currentDayMenu.comidas.forEach((meal, mealIdx) => {
+        const mealCard = document.createElement('div');
+        mealCard.className = 'bg-white rounded-3xl p-4 shadow-sm border border-sage-200/60 space-y-3';
+
+        const icon = MEAL_ICONS[meal.tipo] || '🍴';
+        const swappedTag = meal.swappedFrom
+          ? `<span class="text-[10px] font-semibold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full ml-1.5">🔄 ${meal.swappedFrom}</span>`
+          : '';
+
+        let dishesHtml = '';
+        meal.platos.forEach((plato, dishIdx) => {
+          const hasRecipe = plato.pasos_receta && plato.pasos_receta.length > 0;
+          const totalGrams = plato.ingredientes.reduce((acc, ing) => acc + (Number(ing.cantidad_g) || 0), 0);
+          const ingPreview = plato.ingredientes.map(i => i.nombre).join(', ');
+
+          dishesHtml += `
+            <button type="button" onclick="openRecipeModal(${mealIdx}, ${dishIdx})"
+              class="w-full text-left p-3.5 rounded-2xl bg-sage-50/70 hover:bg-sage-100/80 active:scale-[0.99] border border-sage-200/50 transition flex items-center justify-between gap-3 group cursor-pointer">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <p class="font-bold text-sm text-slate-800 group-hover:text-sage-800 leading-snug">${plato.nombre}</p>
+                  ${hasRecipe
+                    ? '<span class="text-[10px] font-bold bg-sage-600 text-white px-2 py-0.5 rounded-full shrink-0">📖 Receta</span>'
+                    : '<span class="text-[10px] font-medium bg-slate-200/70 text-slate-600 px-2 py-0.5 rounded-full shrink-0">Directo</span>'
+                  }
+                </div>
+                <p class="text-xs text-slate-500 truncate mt-1">${ingPreview} ${totalGrams > 0 ? `· ~${Math.round(totalGrams)}g` : ''}</p>
+              </div>
+              <span class="text-sage-600 font-bold text-sm shrink-0">›</span>
+            </button>
+          `;
+        });
+
+        mealCard.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-lg">${icon}</span>
+              <h3 class="font-bold text-base text-slate-800">${meal.tipo}</h3>
+              <span class="text-xs font-semibold text-sage-700 bg-sage-100 px-2.5 py-0.5 rounded-full">${meal.hora}</span>
+              ${swappedTag}
+            </div>
+            <button type="button" onclick="swapSingleMeal(${mealIdx})" title="Cambiar solo esta comida al azar"
+              class="text-xs font-semibold text-sage-700 hover:bg-sage-100 px-2.5 py-1.5 rounded-xl flex items-center gap-1 transition active:scale-95 shrink-0">
+              <span>🔄</span>
+              <span>Cambiar</span>
+            </button>
+          </div>
+          <div class="space-y-2">
+            ${dishesHtml}
+          </div>
+        `;
+
+        mealsContainer.appendChild(mealCard);
+      });
+    }
+
+    // 8. PIN TODAY & FAVORITES
+    function pinCurrentAsToday() {
+      if (!currentDayMenu) return;
+      localStorage.setItem(STORAGE_KEY_PINNED, JSON.stringify(currentDayMenu));
+      updateHeaderAndCounts();
+      renderCurrentDayMenu(false);
+      showToast(`Fijado como Menú de Hoy (${currentDayMenu.dia})`, '📌');
+    }
+
+    function loadPinnedMenu() {
+      const raw = localStorage.getItem(STORAGE_KEY_PINNED);
+      if (!raw) return;
+      try {
+        currentDayMenu = JSON.parse(raw);
+        localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(currentDayMenu));
+        switchTab('sorteo');
+        renderCurrentDayMenu(true);
+        showToast('Cargado tu Menú fijado para Hoy', '📌');
+      } catch (e) {
+        showToast('No se pudo cargar el menú fijado', '⚠️');
+      }
+    }
+
+    function toggleFavoriteCurrent() {
+      if (!currentDayMenu) return;
+      const uid = currentDayMenu.uid;
+      if (favoritesSet.has(uid)) {
+        favoritesSet.delete(uid);
+        showToast('Eliminado de favoritos', '🤍');
+      } else {
+        favoritesSet.add(uid);
+        showToast('Guardado en favoritos', '❤️');
+      }
+      localStorage.setItem(STORAGE_KEY_FAVS, JSON.stringify(Array.from(favoritesSet)));
+      renderCurrentDayMenu(false);
+      renderExploreList();
+    }
+
+    function updateHeaderAndCounts() {
+      const totalDays = flattenedDays.length;
+      const totalWeeks = weeks.length;
+      document.getElementById('header-subtitle').textContent =
+        `Enrique Flores Saez · ${totalWeeks} ${totalWeeks === 1 ? 'semana' : 'semanas'} (${totalDays} días)`;
+      document.getElementById('pool-count-label').textContent = `${totalDays} días`;
+      document.getElementById('nav-explorar-label').textContent = `Explorar (${totalDays})`;
+
+      const pinnedRaw = localStorage.getItem(STORAGE_KEY_PINNED);
+      const pinnedBtn = document.getElementById('btn-load-pinned');
+      if (pinnedRaw) {
+        try {
+          const p = JSON.parse(pinnedRaw);
+          document.getElementById('pinned-badge-text').textContent = `Hoy: ${p.dia}`;
+          pinnedBtn.classList.remove('hidden');
+          pinnedBtn.classList.add('flex');
+        } catch (e) {
+          pinnedBtn.classList.add('hidden');
+        }
+      } else {
+        pinnedBtn.classList.add('hidden');
+      }
+    }
+
+    // 9. RECIPE BOTTOM-SHEET MODAL
+    function openRecipeModal(mealIdx, dishIdx) {
+      const meal = currentDayMenu.comidas[mealIdx];
+      if (!meal) return;
+      const plato = meal.platos[dishIdx];
+      if (!plato) return;
+
+      document.getElementById('modal-meal-tag').textContent = `${meal.tipo} · ${meal.hora}`;
+      document.getElementById('modal-dish-title').textContent = plato.nombre;
+
+      // Render ingredients
+      const ingList = document.getElementById('modal-ingredients-list');
+      ingList.innerHTML = '';
+      if (plato.ingredientes && plato.ingredientes.length > 0) {
+        plato.ingredientes.forEach(ing => {
+          const li = document.createElement('li');
+          li.className = 'flex items-center justify-between gap-2 bg-sage-50 px-3.5 py-2.5 rounded-2xl border border-sage-200/50 text-sm';
+          const measureText = ing.medida_casera ? `<span class="text-xs text-slate-500 block">${ing.medida_casera}</span>` : '';
+          li.innerHTML = `
+            <div>
+              <span class="font-semibold text-slate-800">${ing.nombre}</span>
+              ${measureText}
+            </div>
+            <span class="font-bold text-sage-700 bg-white px-2.5 py-1 rounded-xl border border-sage-200 text-xs shrink-0">
+              ${ing.cantidad_g} g
+            </span>
+          `;
+          ingList.appendChild(li);
+        });
+      } else {
+        ingList.innerHTML = '<li class="text-xs text-slate-400">Sin detalle de ingredientes.</li>';
+      }
+
+      // Render recipe steps
+      const stepsList = document.getElementById('modal-steps-list');
+      stepsList.innerHTML = '';
+      if (plato.pasos_receta && plato.pasos_receta.length > 0) {
+        plato.pasos_receta.forEach((step, idx) => {
+          const li = document.createElement('li');
+          li.className = 'flex items-start gap-3 text-sm text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-2xl';
+          li.innerHTML = `
+            <span class="w-6 h-6 rounded-full bg-sage-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+              ${idx + 1}
+            </span>
+            <span>${step}</span>
+          `;
+          stepsList.appendChild(li);
+        });
+      } else {
+        stepsList.innerHTML = `
+          <li class="text-sm text-slate-500 bg-slate-50 p-3.5 rounded-2xl">
+            Alimento listo para servir o de preparación directa según las cantidades indicadas.
+          </li>
+        `;
+      }
+
+      document.getElementById('recipe-modal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeRecipeModal() {
+      document.getElementById('recipe-modal').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    // 10. EXPLORE ALL DAYS TAB
+    function setExploreFilter(mode) {
+      exploreFilterMode = mode;
+      const btnAll = document.getElementById('filter-all-btn');
+      const btnFav = document.getElementById('filter-fav-btn');
+
+      if (mode === 'all') {
+        btnAll.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-sage-600 text-white';
+        btnFav.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600';
+      } else {
+        btnFav.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-sage-600 text-white';
+        btnAll.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600';
+      }
+      renderExploreList();
+    }
+
+    function renderExploreList() {
+      const container = document.getElementById('explore-days-container');
+      const query = (document.getElementById('explore-search').value || '').toLowerCase().trim();
+      container.innerHTML = '';
+
+      let list = flattenedDays;
+      if (exploreFilterMode === 'fav') {
+        list = list.filter(d => favoritesSet.has(d.uid));
+      }
+
+      if (query) {
+        list = list.filter(d => {
+          const inDayName = d.dia.toLowerCase().includes(query) || `semana ${d.semanaIndex}`.includes(query);
+          const inDishes = d.comidas.some(m =>
+            m.platos.some(p =>
+              p.nombre.toLowerCase().includes(query) ||
+              p.ingredientes.some(i => i.nombre.toLowerCase().includes(query))
+            )
+          );
+          return inDayName || inDishes;
+        });
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-3xl p-8 text-center border border-slate-200/70">
+            <p class="text-2xl mb-2">🔍</p>
+            <p class="text-sm font-semibold text-slate-700">No hay días que coincidan con tu filtro.</p>
+          </div>
+        `;
+        return;
+      }
+
+      list.forEach(day => {
+        const comida = day.comidas.find(m => m.tipo === 'Comida');
+        const cena = day.comidas.find(m => m.tipo === 'Cena');
+        const mainLunch = comida ? comida.platos[0]?.nombre : '';
+        const mainDinner = cena ? cena.platos[0]?.nombre : '';
+        const isFav = favoritesSet.has(day.uid);
+
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-3xl p-4 shadow-sm border border-sage-200/60 flex flex-col gap-2.5';
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="bg-sage-100 text-sage-800 text-xs font-bold px-2.5 py-1 rounded-full">
+                Semana ${day.semanaIndex} · ${day.dia}
+              </span>
+              ${isFav ? '<span class="text-sm">❤️</span>' : ''}
+            </div>
+            <button onclick="selectDayFromExplore('${day.uid}')" class="bg-sage-600 hover:bg-sage-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl transition active:scale-95">
+              Ver menú →
+            </button>
+          </div>
+          <div class="text-xs text-slate-600 space-y-1">
+            <p><strong class="text-slate-800">🍽️ Comida:</strong> ${mainLunch}</p>
+            <p><strong class="text-slate-800">🌙 Cena:</strong> ${mainDinner}</p>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function selectDayFromExplore(uid) {
+      const found = flattenedDays.find(d => d.uid === uid);
+      if (!found) return;
+      currentDayMenu = structuredClone(found);
+      localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(currentDayMenu));
+      switchTab('sorteo');
+      renderCurrentDayMenu(true);
+      showToast(`Mostrando Semana ${found.semanaIndex} · ${found.dia}`, '📅');
+    }
+
+    // 11. SHOPPING LIST AGGREGATOR
+    function getDaysForShoppingScope() {
+      const scope = document.getElementById('shopping-scope').value;
+      if (scope === 'current') return currentDayMenu ? [currentDayMenu] : [];
+      if (scope === 'pinned') {
+        const raw = localStorage.getItem(STORAGE_KEY_PINNED);
+        return raw ? [JSON.parse(raw)] : (currentDayMenu ? [currentDayMenu] : []);
+      }
+      if (scope === 'week1') {
+        return flattenedDays.filter(d => d.semanaIndex === 1);
+      }
+      return flattenedDays;
+    }
+
+    function renderShoppingList() {
+      const daysToSum = getDaysForShoppingScope();
+      const map = new Map();
+
+      daysToSum.forEach(day => {
+        day.comidas.forEach(meal => {
+          meal.platos.forEach(plato => {
+            plato.ingredientes.forEach(ing => {
+              const key = ing.nombre.trim();
+              const prev = map.get(key) || 0;
+              map.set(key, prev + (Number(ing.cantidad_g) || 0));
+            });
+          });
+        });
+      });
+
+      const items = Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+      const container = document.getElementById('shopping-items-container');
+      document.getElementById('shopping-summary-text').textContent =
+        `${items.length} ingredientes (${daysToSum.length} ${daysToSum.length === 1 ? 'día' : 'días'})`;
+
+      container.innerHTML = '';
+      if (items.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-400 py-4 text-center">No hay ingredientes para mostrar.</p>';
+        return;
+      }
+
+      items.forEach(([name, grams]) => {
+        const isChecked = checkedShoppingItems.has(name);
+        const row = document.createElement('label');
+        row.className = 'py-2.5 flex items-center justify-between gap-3 cursor-pointer select-none';
+        row.innerHTML = `
+          <div class="flex items-center gap-3 min-w-0">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleShoppingItem('${name.replace(/'/g, "\\'")}')"
+              class="w-4 h-4 rounded accent-sage-600 cursor-pointer shrink-0" />
+            <span class="text-sm truncate ${isChecked ? 'line-through text-slate-400' : 'text-slate-700 font-medium'}">${name}</span>
+          </div>
+          <span class="text-xs font-bold px-2.5 py-1 rounded-lg shrink-0 ${isChecked ? 'bg-slate-100 text-slate-400' : 'bg-sage-100 text-sage-800'}">
+            ${Math.round(grams * 10) / 10} g
+          </span>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function toggleShoppingItem(name) {
+      if (checkedShoppingItems.has(name)) {
+        checkedShoppingItems.delete(name);
+      } else {
+        checkedShoppingItems.add(name);
+      }
+      localStorage.setItem(STORAGE_KEY_CHECKED_SHOP, JSON.stringify(Array.from(checkedShoppingItems)));
+      renderShoppingList();
+    }
+
+    function copyShoppingList() {
+      const daysToSum = getDaysForShoppingScope();
+      const map = new Map();
+      daysToSum.forEach(day => {
+        day.comidas.forEach(meal => {
+          meal.platos.forEach(plato => {
+            plato.ingredientes.forEach(ing => {
+              const key = ing.nombre.trim();
+              map.set(key, (map.get(key) || 0) + (Number(ing.cantidad_g) || 0));
+            });
+          });
+        });
+      });
+
+      const lines = Array.from(map.entries())
+        .sort((a, b) => a[0].localeCompare(b[0], 'es'))
+        .map(([k, v]) => `- ${k}: ${Math.round(v * 10) / 10}g`);
+
+      const textToCopy = `🛒 Lista de la compra NutriHábito:\n${lines.join('\n')}`;
+
+      // Fallback-safe clipboard copy using execCommand
+      const textarea = document.createElement('textarea');
+      textarea.value = textToCopy;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showToast('Lista copiada al portapapeles', '📋');
+      } catch (err) {
+        showToast('No se pudo copiar automáticamente', '⚠️');
+      }
+      document.body.removeChild(textarea);
+    }
+
+    // 12. MANAGE WEEKS (IMPORT / EXPORT / DELETE JSON)
+    function validateAndAddWeekJson(parsedObj) {
+      // Support either a single weekly object { dias: [...] } or an array of weekly objects
+      const candidates = Array.isArray(parsedObj) ? parsedObj : [parsedObj];
+      let addedCount = 0;
+
+      candidates.forEach(item => {
+        if (item && Array.isArray(item.dias) && item.dias.length > 0) {
+          weeks.push(item);
+          addedCount++;
+        }
+      });
+
+      if (addedCount === 0) {
+        throw new Error('El JSON no contiene un array válido de "dias".');
+      }
+
+      saveWeeksToStorage();
+      rebuildFlattenedDays();
+      renderAllergenFilterChips();
+      updateHeaderAndCounts();
+      renderLoadedWeeksList();
+      renderExploreList();
+      return addedCount;
+    }
+
+    function handleJsonFileUpload(event) {
+      const files = Array.from(event.target.files || []);
+      if (files.length === 0) return;
+
+      let totalAdded = 0;
+      let processed = 0;
+
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const json = JSON.parse(e.target.result);
+            totalAdded += validateAndAddWeekJson(json);
+          } catch (err) {
+            showToast(`Error en ${file.name}: formato JSON inválido`, '⚠️');
+          } finally {
+            processed++;
+            if (processed === files.length && totalAdded > 0) {
+              showToast(`¡Se añadieron ${totalAdded} semana(s)! Total: ${flattenedDays.length} días`, '🎉');
+            }
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      event.target.value = '';
+    }
+
+    function handleJsonPasteImport() {
+      const textarea = document.getElementById('json-paste-area');
+      const raw = textarea.value.trim();
+      if (!raw) {
+        showToast('Pega primero el contenido JSON en el recuadro', '⚠️');
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+        const added = validateAndAddWeekJson(parsed);
+        textarea.value = '';
+        showToast(`¡Añadida(s) ${added} semana(s)! Ahora tienes ${flattenedDays.length} días`, '🎉');
+      } catch (err) {
+        showToast('JSON inválido: revisa que esté completo y bien cerrado', '⚠️');
+      }
+    }
+
+    function renderLoadedWeeksList() {
+      const container = document.getElementById('loaded-weeks-list');
+      container.innerHTML = '';
+
+      weeks.forEach((w, idx) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between bg-slate-50 px-3.5 py-2.5 rounded-2xl border border-slate-200/70 text-xs';
+        const dateLabel = w.fecha_plan ? `Plan ${w.fecha_plan}` : 'Sin fecha';
+        const countDays = Array.isArray(w.dias) ? w.dias.length : 0;
+
+        row.innerHTML = `
+          <div>
+            <span class="font-bold text-slate-800">Semana ${idx + 1}</span>
+            <span class="text-slate-500 ml-1.5">(${dateLabel} · ${countDays} días)</span>
+          </div>
+          ${idx === 0
+            ? '<span class="text-[11px] font-semibold text-sage-700 bg-sage-100 px-2 py-0.5 rounded-full">Base</span>'
+            : `<button onclick="removeWeek(${idx})" class="text-rose-600 font-semibold hover:underline px-2 py-1">Eliminar</button>`
+          }
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function removeWeek(index) {
+      if (index === 0) return;
+      weeks.splice(index, 1);
+      saveWeeksToStorage();
+      rebuildFlattenedDays();
+      renderAllergenFilterChips();
+      updateHeaderAndCounts();
+      renderLoadedWeeksList();
+      renderExploreList();
+      showToast('Semana eliminada', '🗑️');
+    }
+
+    function exportAllDataJson() {
+      const dataStr = JSON.stringify(weeks, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nutrihabito_${weeks.length}_semanas.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Descargando copia de seguridad JSON', '💾');
+    }
+
+    function requestResetData() {
+      const btn = document.getElementById('btn-reset-confirm');
+      if (!resetConfirmPending) {
+        resetConfirmPending = true;
+        btn.textContent = '⚠️ Pulsa otra vez para confirmar';
+        setTimeout(() => {
+          resetConfirmPending = false;
+          btn.textContent = 'Restaurar datos iniciales';
+        }, 3500);
+        return;
+      }
+
+      resetConfirmPending = false;
+      btn.textContent = 'Restaurar datos iniciales';
+      weeks = [INITIAL_PLAN_DATA];
+      excludedAllergens.clear();
+      saveWeeksToStorage();
+      rebuildFlattenedDays();
+      currentDayMenu = structuredClone(flattenedDays[0]);
+      localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(currentDayMenu));
+      renderAllergenFilterChips();
+      updateHeaderAndCounts();
+      renderCurrentDayMenu(true);
+      renderLoadedWeeksList();
+      renderExploreList();
+      renderShoppingList();
+      showToast('Datos restaurados a la Semana 1 original', '🔄');
+    }
+
+    // Boot app on window load
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
